@@ -3,6 +3,7 @@ nsteps = 4000
 G_grav = 6.6743e-11
 mt     = 5.972e24
 ml     = 7.348e22
+ms     = 1
 rt     = 6378100 !metr
 rl     = 1737100 ! metr
 dist   = 385000000 ! metr 

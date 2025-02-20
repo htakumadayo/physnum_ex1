@@ -9,6 +9,28 @@
 
 using namespace std; // ouvrir un namespace avec la librerie c++ de base
 
+/* TODO
+ *  1. Implementer les schemas d'Euler, avec param alpha
+ *  2. Positions de la Terre et la lune.   OK
+ *  3. Vitesse de rotation   OK
+ *  4. Calcul de la position initiale (vitesse initiale)  OK
+ *  5. Calcul de l'energie mecanique   OK
+ */
+
+ 
+#define SQUARE(x) ((x) * (x))
+
+void print_vect(const valarray<double>& arr){
+  cout << "vx: " << arr[0] << " vy: " << arr[1] << " x: " << arr[2] << " y: " << arr[3] << endl;
+}
+double calc_norm(const valarray<double>& arr){
+  double sum_norm_sqr = 0;
+  for(size_t i = 0; i < arr.size(); ++i){
+    //cout << i << "th :" << arr[i] << endl;
+    sum_norm_sqr += SQUARE(arr[i]);
+  }
+  return sqrt(sum_norm_sqr);
+}
 /* La class Engine est le moteur principale de ce code. Il contient 
    les methodes de base pour lire / initialiser les inputs, 
    preparer les outputs et calculer les donnees necessaires
@@ -27,6 +49,7 @@ double tfin;         // Temps final
 unsigned int nsteps; // Nombre de pas de temps
 double ml;           // Masse de la Lune
 double mt;           // Masse de la Terre
+double ms;
 double dist;         // Distance Terre-Lune
 double Om;           // Vitesse de rotation du repère
 double G_grav;       // Constante gravitationnelle
@@ -35,6 +58,7 @@ double xl;           // Position de la Lune
 double dist_s_t;     // Distance satellite-Terre
 double dist_s_l;     // Distance satellite-Lune
 
+  // (vx vy x y)
   valarray<double> y0 = std::valarray<double>(0.e0, 4); // Correctly initialized
   valarray<double> y  = std::valarray<double>(0.e0, 4); // Correctly initialized
 
@@ -48,10 +72,29 @@ double dist_s_l;     // Distance satellite-Lune
      inputs:
      write: (bool) ecriture de tous les sampling si faux
   */  
+
+  double calcDist(double x_other){
+    //cout << y[2] << ' ' << y[3] << endl;
+    return sqrt(SQUARE(y[2] - x_other) + SQUARE(y[3]));
+  }
+
+  double calculateEnergy(){
+    double vx_sat = y[0], vy_sat = y[1];
+    double x_sat = y[2], y_sat = y[3];
+    double d_sat_earth = sqrt(SQUARE(x_sat - xt) + SQUARE(y_sat));
+    double d_sat_lune = sqrt(SQUARE(x_sat - xl) + SQUARE(y_sat));
+    double Ep_grav = -G_grav * ms * mt / d_sat_earth - G_grav * ms * ml / d_sat_lune;
+
+    double Ep_centrifuge = -ms * Om * Om * (SQUARE(x_sat) + SQUARE(y_sat)) / 2;
+
+    double E_cin = 0.5 * ms * (SQUARE(vx_sat) + SQUARE(vy_sat));
+    return Ep_grav + Ep_centrifuge + E_cin;
+  }
+
   void printOut(bool write)
   {
   // TODO calculer l'energie mecanique
-    double Energy =  0;
+    double Energy =  calculateEnergy();
 
     // Ecriture tous les [sampling] pas de temps, sauf si write est vrai
     if((!write && last>=sampling) || (write && last!=1))
@@ -66,12 +109,17 @@ double dist_s_l;     // Distance satellite-Lune
     }
   }
 
-    void compute_f(valarray<double>& f) //  TODO: Calcule le tableau de fonctions f(y)
+    void compute_f(valarray<double>& f, const valarray<double>& y_target) //  TODO: Calcule le tableau de fonctions f(y)
     {
-      f[0]      = 0;
-      f[1]      = 0;
-      f[2]      = 0; 
-      f[3]      = 0; 
+      double vx_sat = y_target[0], vy_sat = y_target[1];
+      double x_sat = y_target[2], y_sat = y_target[3];
+ 
+      double dist_st_cube = pow(calcDist(xt), 3);
+      double dist_sl_cube = pow(calcDist(xl), 3);
+      f[0]      = -G_grav * mt * (x_sat - xt) / dist_st_cube - G_grav * ml * (x_sat - xl) / dist_sl_cube + 2 * Om * vx_sat + Om * Om * x_sat;
+      f[1]      = -G_grav * mt * y_sat / dist_st_cube - G_grav * ml * y_sat / dist_sl_cube - 2 * Om * vx_sat + Om * Om * y_sat;
+      f[2]      = vx_sat; 
+      f[3]      = vy_sat; 
     }
 
     // New step method from EngineEuler
@@ -80,9 +128,10 @@ double dist_s_l;     // Distance satellite-Lune
       unsigned int iteration=0;
       double error=999e0;
       valarray<double> f =valarray<double>(0.e0,4); 
-      valarray<double> yold=valarray<double>(y);
-      valarray<double> y_control=valarray<double>(y);
+      valarray<double> yold=valarray<double>(y);  // y_n
+      valarray<double> y_control=valarray<double>(y);  // y^(k+1)
       valarray<double> delta_y_EE=valarray<double>(y);
+
 
       //TODO : écrire un algorithme valide pour chaque alpha dans [0,1]
       // tel que alpha=1 correspond à Euler explicite et alpha=0 à Euler implicite 
@@ -90,9 +139,25 @@ double dist_s_l;     // Distance satellite-Lune
       if(alpha >= 0. && alpha <= 1.0){
         t += dt;                 //mise à jour du temps 
         while(error>tol && iteration<=maxit){
-        	y = yold; // MODIFIER et COMPLETER
-        	iteration += 1;
-	}	
+          compute_f(f, yold);
+          valarray<double> dy_expl = alpha * f;   // Partie explicite
+          //cout << "f_old: "; print_vect(f);
+          compute_f(f, y_control);
+          //cout << "f: "; print_vect(f);
+          valarray<double> dy_impl = (1 - alpha) * f;  // Partie implicite
+          valarray<double> y_control_old = valarray<double>(y_control);  // y^(k)
+          //cout << "yold: "; print_vect(yold);
+          //cout << "ycontrol_old: "; print_vect(y_control_old);
+          y_control = yold + dt * (dy_impl + dy_expl);
+          //cout << "dt :" << dt << endl;
+          //cout << "y_control: "; print_vect(y_control);
+
+          delta_y_EE = y_control - y_control_old;
+          error = calc_norm(delta_y_EE);
+          //error = 0;
+          // cout << error << endl;
+          iteration += 1;
+        }
         if(iteration>=maxit){
           cout << "WARNING: maximum number of iterations reached, error: " << error << endl;
         }
@@ -102,7 +167,9 @@ double dist_s_l;     // Distance satellite-Lune
         cerr << "alpha not valid" << endl;
       }
       cout << iteration << endl;
-  
+      y = y_control;
+      cout << "Old : "; print_vect(yold);
+      cout << "new : "; print_vect(y); 
     }
 
 public:
@@ -119,13 +186,14 @@ public:
       G_grav   = configFile.get<double>("G_grav",G_grav);           
       ml       = configFile.get<double>("ml",ml);            
       mt       = configFile.get<double>("mt",mt);        
+      ms       = configFile.get<double>("ms",ms);
       dist     = configFile.get<double>("dist",dist);        
       sampling = configFile.get<unsigned int>("sampling",sampling);
       tol      = configFile.get<double>("tol", tol);
       maxit    = configFile.get<unsigned int>("maxit", maxit);
       alpha    = configFile.get<double>("alpha", alpha);
       // TODO: calculer le time step
-      dt       = 0; 
+      dt       = tfin / nsteps; 
 
       
       // Ouverture du fichier de sortie
@@ -143,13 +211,13 @@ public:
       // Simulation complete
     void run()
     {
+      double mass_total = mt + ml;
       // TODO : initialiser la position de la Terre et de la Lune, ainsi que la position de X' du satellite et Omega
-      Om = 0;
-      xt = 0;
-      xl = 0; 
-      y0[2] = 0;
-      
-
+      Om = G_grav * mass_total / pow(dist, 3);
+      xt = -dist * ml / mass_total;
+      xl = dist * mt / mass_total;
+      y0[2] = dist * (mt - sqrt(ml * mt)) / (mt - ml) + xt;
+      cout << "y init " << y0[2] << endl;
       t = 0.e0; // initialiser le temps
       y = y0;   // initialiser le position 
       last = 0; // initialise le parametre d'ecriture
