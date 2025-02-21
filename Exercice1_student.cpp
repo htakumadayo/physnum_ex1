@@ -7,6 +7,10 @@
                           // Fichier .tpp car inclut fonctions template
 #include <numeric>
 
+#ifdef SDL_VISUALIZE
+#include "SDL_render.hpp"
+#endif
+
 using namespace std; // ouvrir un namespace avec la librerie c++ de base
 
 /* TODO
@@ -116,7 +120,7 @@ double dist_s_l;     // Distance satellite-Lune
  
       double dist_st_cube = pow(calcDist(xt), 3);
       double dist_sl_cube = pow(calcDist(xl), 3);
-      f[0]      = -G_grav * mt * (x_sat - xt) / dist_st_cube - G_grav * ml * (x_sat - xl) / dist_sl_cube + 2 * Om * vx_sat + Om * Om * x_sat;
+      f[0]      = -G_grav * mt * (x_sat - xt) / dist_st_cube - G_grav * ml * (x_sat - xl) / dist_sl_cube + 2 * Om * vy_sat + Om * Om * x_sat;
       f[1]      = -G_grav * mt * y_sat / dist_st_cube - G_grav * ml * y_sat / dist_sl_cube - 2 * Om * vx_sat + Om * Om * y_sat;
       f[2]      = vx_sat; 
       f[3]      = vy_sat; 
@@ -213,21 +217,32 @@ public:
     {
       double mass_total = mt + ml;
       // TODO : initialiser la position de la Terre et de la Lune, ainsi que la position de X' du satellite et Omega
-      Om = G_grav * mass_total / pow(dist, 3);
+      // Om = sqrt(G_grav * mass_total / pow(dist, 3));
+      Om = 0;
       xt = -dist * ml / mass_total;
       xl = dist * mt / mass_total;
       y0[2] = dist * (mt - sqrt(ml * mt)) / (mt - ml) + xt;
-      cout << "y init " << y0[2] << endl;
       t = 0.e0; // initialiser le temps
       y = y0;   // initialiser le position 
       last = 0; // initialise le parametre d'ecriture
 
-      printOut(true); // ecrire la condition initiale
+      std::cout << "xt: " << xt << std::endl;
+      std::cout << "xl: " << xl << std::endl;
 
+      printOut(true); // ecrire la condition initiale
+#ifdef SDL_VISUALIZE
+      bool running = true;
+      running = initializeSDL(1200, 500);
+      while(running){
+        drawObjects(xt, xl, y[2], y[3]);
+        running = processEventsAndQuit();
+         
+#else
       for(unsigned int i(0); i<nsteps; ++i) // boucle sur les pas de temps
       {
-        step();  // faire un pas de temps
         printOut(false); // ecrire le pas de temps actuel
+#endif
+        step();  // faire un pas de temps
       }
       printOut(true); // ecrire le dernier pas de temps
 

@@ -1,2 +1,7 @@
 a.out
 output_SI.txt
+CMakeCache.txt
+CMakeFiles/
+physnum_ex1
+*.cmake
+Makefile

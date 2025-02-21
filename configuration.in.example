@@ -1,5 +1,5 @@
-tfin   = 259200 ! 
-nsteps = 4000
+tfin   = 90000 ! 
+nsteps = 10000
 G_grav = 6.6743e-11
 mt     = 5.972e24
 ml     = 7.348e22
