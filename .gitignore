@@ -5,3 +5,4 @@ CMakeFiles/
 physnum_ex1
 *.cmake
 Makefile
+*.out

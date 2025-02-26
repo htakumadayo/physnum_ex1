@@ -170,10 +170,10 @@ double dist_s_l;     // Distance satellite-Lune
       {
         cerr << "alpha not valid" << endl;
       }
-      cout << iteration << endl;
+      // cout << iteration << endl;
       y = y_control;
-      cout << "Old : "; print_vect(yold);
-      cout << "new : "; print_vect(y); 
+      // cout << "Old : "; print_vect(yold);
+      // cout << "new : "; print_vect(y); 
     }
 
 public:
@@ -217,17 +217,14 @@ public:
     {
       double mass_total = mt + ml;
       // TODO : initialiser la position de la Terre et de la Lune, ainsi que la position de X' du satellite et Omega
-      // Om = sqrt(G_grav * mass_total / pow(dist, 3));
-      Om = 0;
+      Om = sqrt(G_grav * mass_total / pow(dist, 3));
+      //Om = 0;
       xt = -dist * ml / mass_total;
       xl = dist * mt / mass_total;
       y0[2] = dist * (mt - sqrt(ml * mt)) / (mt - ml) + xt;
       t = 0.e0; // initialiser le temps
       y = y0;   // initialiser le position 
       last = 0; // initialise le parametre d'ecriture
-
-      std::cout << "xt: " << xt << std::endl;
-      std::cout << "xl: " << xl << std::endl;
 
       printOut(true); // ecrire la condition initiale
 #ifdef SDL_VISUALIZE

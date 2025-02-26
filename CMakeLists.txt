@@ -3,7 +3,7 @@ project(physnum_ex1 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 
 # Visualiser graphiquement
-set(SDL_VISUALIZE 1)
+set(SDL_VISUALIZE 0)
 set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -g")
 add_executable(${PROJECT_NAME} Exercice1_student.cpp)
 if(${SDL_VISUALIZE})
