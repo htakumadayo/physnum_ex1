@@ -13,11 +13,12 @@ os.chdir(repertoire)
 input_filename = 'configuration.in.example'  # Name of the input file
 
 
-nsteps = np.geomspace(9000, 10e4, 50).astype(np.int32);
-# nsteps = np.array([4000, 6000, 11000, 13e3, 51e3, 60e3, 15e4]) # TODO change
+#nsteps = np.geomspace(1.1e4, 10e4, 50).astype(np.int32)
+# print(nsteps[-1])
+nsteps = np.array([1000000]) # TODO change
 nsimul = len(nsteps)  # Number of simulations to perform
 
-tfin = 259200  # TODO: Verify that the value of tfin is EXACTLY the same as in the input file
+tfin = 3592000  # TODO: Verify that the value of tfin is EXACTLY the same as in the input file
 
 dt = tfin / nsteps
 
@@ -48,9 +49,9 @@ for i in range(nsimul):  # Iterate through the results of all simulations
     xx = data[-1, 3]
     yy = data[-1, 4]
     En = data[-1, 5]
-    convergence_list.append(xx)
+    convergence_list.append(yy)
     # TODO compute the error for each simulation
-    error[i] =  0 
+    error[i] =  abs(3.507e8 - xx); 
 
 lw = 1.5
 fs = 16
@@ -60,7 +61,20 @@ ax.plot(data[:, 3], data[:, 4])
 ax.set_xlabel('x [m]', fontsize=fs)
 ax.set_ylabel('y [m]', fontsize=fs)
 
+xl = 3.80321e+08
+Rl = 1737.1e+03
 
+ax.plot(xl, 0, 'yo')
+theta = np.linspace(0, 1) * 2 * np.pi
+ax.plot(xl + Rl * np.cos(theta), Rl * np.sin(theta), 'y+-', linewidth=1)
+
+#print(len(data[:,5]))
+#plt.figure()
+#plt.plot(dt * np.arange(0, nsteps[-1] + 1), data[:, 5], 'y-', linewidth=lw)
+#plt.xlabel("Time t [s]", fontsize=fs)
+#plt.ylabel("$E_m [J]", fontsize=fs)
+#plt.xticks(fontsize=fs)
+#plt.yticks(fontsize=fs)
 
 # uncomment the following if you want debug
 #import pdb
@@ -78,12 +92,12 @@ Si on n'a pas la solution analytique: on représente la quantite voulue
 (ci-dessous v_y, modifier selon vos besoins)
 en fonction de (Delta t)^norder, ou norder est un entier.
 """
-norder = 3  # Modify if needed
+norder = 2  # Modify if needed
 
 plt.figure()
-plt.plot(dt**norder, convergence_list, 'k+-', linewidth=lw)
+plt.plot((dt**norder)[35:], convergence_list[35:], 'k+-', linewidth=lw)
 plt.xlabel(r"$(\Delta t \mathrm {[s]})" + f" ^{norder}$", fontsize=fs)
-plt.ylabel(r'$xx$', fontsize=fs)
+plt.ylabel(r'$y\'(t_{fin})$', fontsize=fs)
 plt.xticks(fontsize=fs)
 plt.yticks(fontsize=fs)
 plt.grid(True)

@@ -159,7 +159,7 @@ double dist_s_l;     // Distance satellite-Lune
           delta_y_EE = y_control - y_control_old;
           error = calc_norm(delta_y_EE);
           //error = 0;
-          // cout << error << endl;
+          //cout << iteration << endl;
           iteration += 1;
         }
         if(iteration>=maxit){
@@ -221,6 +221,7 @@ public:
       //Om = 0;
       xt = -dist * ml / mass_total;
       xl = dist * mt / mass_total;
+      //cout << "X lune: " << xl << endl;
       y0[2] = dist * (mt - sqrt(ml * mt)) / (mt - ml) + xt;
       t = 0.e0; // initialiser le temps
       y = y0;   // initialiser le position 
