@@ -22,10 +22,6 @@ double sq(double x){
   return x * x;
 }
 
-void print_vect(const valarray<double>& arr){
-  cout << "vx: " << arr[0] << " vy: " << arr[1] << " x: " << arr[2] << " y: " << arr[3] << endl;
-}
-
 // Calcul de la norme du vecteur arr passé en paramètre
 double calc_norm(const valarray<double>& arr){
   double sum_norm_sqr = 0;
@@ -135,6 +131,7 @@ double dist_s_l;     // Distance satellite-Lune
       double error=999e0;
       valarray<double> f_impl =valarray<double>(0.e0,4); 
       valarray<double> f_expl =valarray<double>(0.e0,4); 
+      valarray<double> f_expl_next = valarray<double>(y);  // f calculé avec y^(k+1)
       valarray<double> yold=valarray<double>(y);  // y_n
       valarray<double> y_control=valarray<double>(y);  // y^(k+1)
       valarray<double> delta_y_EE=valarray<double>(y);
@@ -145,17 +142,18 @@ double dist_s_l;     // Distance satellite-Lune
       // et alpha=0.5 à Euler semi-implicite
       if(alpha >= 0. && alpha <= 1.0){
         t += dt;                 //mise à jour du temps 
-        while(error>tol && iteration<=maxit){
-          compute_f(f_expl, yold);  // Partie explicite
-          valarray<double> dy_expl = alpha * f_expl;
+        compute_f(f_expl, yold);  // Partie explicite
+        valarray<double> dy_expl = alpha * f_expl;
 
+        while(error>tol && iteration<=maxit){
           compute_f(f_impl, y_control);  // Partie implicite
           valarray<double> dy_impl = (1 - alpha) * f_impl;
 
-          valarray<double> y_control_old = valarray<double>(y_control);  // y^(k)
           y_control = yold + dt * (dy_impl + dy_expl);  // Calcul de y^(k+1)
 
-          delta_y_EE = y_control - y_control_old;
+          compute_f(f_expl_next, y_control);
+          valarray<double> y_control_next = yold + dt * (dy_expl + (1 - alpha) * f_expl_next);  // y^(k+2)
+          delta_y_EE = y_control - y_control_next;
           error = calc_norm(delta_y_EE);
           iteration += 1;
         }
