@@ -7,10 +7,6 @@
                           // Fichier .tpp car inclut fonctions template
 #include <numeric>
 
-#ifdef SDL_VISUALIZE
-#include "SDL_render.hpp"
-#endif
-
 using namespace std; // ouvrir un namespace avec la librerie c++ de base
 
 /* TODO
@@ -21,9 +17,7 @@ using namespace std; // ouvrir un namespace avec la librerie c++ de base
  *  5. Calcul de l'energie mecanique   OK
  */
 
- 
-#define SQUARE(x) ((x) * (x))
-
+// Calcul de x**2
 double sq(double x){
   return x * x;
 }
@@ -31,14 +25,17 @@ double sq(double x){
 void print_vect(const valarray<double>& arr){
   cout << "vx: " << arr[0] << " vy: " << arr[1] << " x: " << arr[2] << " y: " << arr[3] << endl;
 }
+
+// Calcul de la norme du vecteur arr passé en paramètre
 double calc_norm(const valarray<double>& arr){
   double sum_norm_sqr = 0;
   for(size_t i = 0; i < arr.size(); ++i){
-    //cout << i << "th :" << arr[i] << endl;
-    sum_norm_sqr += SQUARE(arr[i]);
+    sum_norm_sqr += sq(arr[i]);
   }
   return sqrt(sum_norm_sqr);
 }
+
+
 /* La class Engine est le moteur principale de ce code. Il contient 
    les methodes de base pour lire / initialiser les inputs, 
    preparer les outputs et calculer les donnees necessaires
@@ -81,16 +78,16 @@ double dist_s_l;     // Distance satellite-Lune
      write: (bool) ecriture de tous les sampling si faux
   */  
 
-  double calcDist(double x_other){
-    //cout << y[2] << ' ' << y[3] << endl;
-    return sqrt(sq(y[2] - x_other) + sq(y[3]));
+  // Calcul de la distance entre la position du satellite donnée par y_sat et la position de l'astre donnée par x_other
+  double calcDist(const valarray<double>& y_sat, double x_other){
+    return sqrt(sq(y_sat[2] - x_other) + sq(y_sat[3]));
   }
 
   double calculateEnergy(){
     double vx_sat = y[0], vy_sat = y[1];
     double x_sat = y[2], y_sat = y[3];
-    double d_sat_earth = calcDist(xt);
-    double d_sat_lune = calcDist(xl);
+    double d_sat_earth = calcDist(y, xt);
+    double d_sat_lune = calcDist(y, xl);
     double Ep_grav = -G_grav * ms * mt / d_sat_earth - G_grav * ms * ml / d_sat_lune;
 
     double Ep_centrifuge = -ms * Om * Om * (sq(x_sat) + sq(y_sat)) / 2.0;
@@ -117,15 +114,14 @@ double dist_s_l;     // Distance satellite-Lune
     }
   }
 
+    // Calcul de f en fonction du y donnée par y_target
     void compute_f(valarray<double>& f, const valarray<double>& y_target) //  TODO: Calcule le tableau de fonctions f(y)
-  {
+    {
       double vx_sat = y_target[0], vy_sat = y_target[1];
       double x_sat = y_target[2], y_sat = y_target[3];
  
-      double dist_st = sqrt(sq(x_sat - xt) + sq(y_sat));
-      double dist_sl = sqrt(sq(x_sat - xl) + sq(y_sat));
-      double dist_st_cube = pow(dist_st, 3.0);
-      double dist_sl_cube = pow(dist_sl, 3.0);
+      double dist_st_cube = pow(calcDist(y_target, xt), 3.0);
+      double dist_sl_cube = pow(calcDist(y_target, xl), 3.0);
       f[0]      = -G_grav * mt * (x_sat - xt) / dist_st_cube - G_grav * ml * (x_sat - xl) / dist_sl_cube + 2 * Om * vy_sat + Om * Om * x_sat;
       f[1]      = -G_grav * mt * y_sat / dist_st_cube - G_grav * ml * y_sat / dist_sl_cube - 2 * Om * vx_sat + Om * Om * y_sat;
       f[2]      = vx_sat; 
@@ -150,12 +146,14 @@ double dist_s_l;     // Distance satellite-Lune
       if(alpha >= 0. && alpha <= 1.0){
         t += dt;                 //mise à jour du temps 
         while(error>tol && iteration<=maxit){
-          compute_f(f_expl, yold);
-          valarray<double> dy_expl = alpha * f_expl;   // Partie explicite
-          compute_f(f_impl, y_control);
-          valarray<double> dy_impl = (1 - alpha) * f_impl;  // Partie implicite
+          compute_f(f_expl, yold);  // Partie explicite
+          valarray<double> dy_expl = alpha * f_expl;
+
+          compute_f(f_impl, y_control);  // Partie implicite
+          valarray<double> dy_impl = (1 - alpha) * f_impl;
+
           valarray<double> y_control_old = valarray<double>(y_control);  // y^(k)
-          y_control = yold + dt * (dy_impl + dy_expl);
+          y_control = yold + dt * (dy_impl + dy_expl);  // Calcul de y^(k+1)
 
           delta_y_EE = y_control - y_control_old;
           error = calc_norm(delta_y_EE);
@@ -215,28 +213,17 @@ public:
       double mass_total = mt + ml;
       // TODO : initialiser la position de la Terre et de la Lune, ainsi que la position de X' du satellite et Omega
       Om = sqrt(G_grav * mass_total / pow(dist, 3));
-      //Om = 0;
       xt = -dist * ml / mass_total;
       xl = dist * mt / mass_total;
-      //cout << "X lune: " << xl << endl;
       y0[2] = dist * (mt - sqrt(ml * mt)) / (mt - ml) + xt;
       t = 0.e0; // initialiser le temps
       y = y0;   // initialiser le position 
       last = 0; // initialise le parametre d'ecriture
 
       printOut(true); // ecrire la condition initiale
-#ifdef SDL_VISUALIZE
-      bool running = true;
-      running = initializeSDL(1200, 500);
-      while(running){
-        drawObjects(xt, xl, y[2], y[3]);
-        running = processEventsAndQuit();
-         
-#else
       for(unsigned int i(0); i<nsteps; ++i) // boucle sur les pas de temps
       {
         printOut(false); // ecrire le pas de temps actuel
-#endif
         step();  // faire un pas de temps
       }
       printOut(true); // ecrire le dernier pas de temps
