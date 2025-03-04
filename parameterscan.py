@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import pdb
 import os
 import sys
+import threading
 
 # Parameters
 # TODO adapt to what you need (folder path executable input filename)
@@ -14,9 +15,9 @@ os.chdir(repertoire)
 input_filename = 'configuration.in.example'  # Name of the input file
 
 
-#nsteps = np.geomspace(9e3, 12e4, 50).astype(np.int32)
+nsteps = np.geomspace(4e4, 1e5, 100).astype(np.int32)
 # print(nsteps[-1])
-nsteps = np.array([int(sys.argv[1])]) # TODO change
+# nsteps = np.array([int(sys.argv[1])]) # TODO change
 nsimul = len(nsteps)  # Number of simulations to perform
 
 tfin = 259200  # TODO: Verify that the value of tfin is EXACTLY the same as in the input file
@@ -27,23 +28,33 @@ dt = tfin / nsteps
 paramstr = 'nsteps'  # Parameter name to scan
 param = nsteps  # Parameter values to scan
 
-# Simulations
-outputs = []  # List to store output file names
-convergence_list_x = []
-convergence_list_y = []
-for i in range(nsimul):
-    output_file = f"{paramstr}={param[i]}.out"
-    outputs.append(output_file)
-    cmd = f"{repertoire}{executable} {input_filename} {paramstr}={param[i]:.15g} output={output_file}"
-    # cmd = f"{executable} {input_filename} {paramstr}={param[i]:.15g} output={output_file}"
-    print(cmd)
-    subprocess.run(cmd, shell=True)
-    print('Done.')
-
 error = np.zeros(nsimul)
 
+# Simulations
+all_data = [np.array([])] * nsimul
+convergence_list_x = []
+convergence_list_y = []
+
+def simulate(idx):
+    output_file = f"{paramstr}={param[idx]}.out"
+    cmd = f"{repertoire}{executable} {input_filename} {paramstr}={param[idx]:.15g} output={output_file}"
+    print(cmd)
+    subprocess.run(cmd, shell=True)
+    data = np.loadtxt(output_file)
+    all_data[idx] = data
+    print(f'Done. ({paramstr}={param[idx]})')
+
+threads = []
+for i in range(nsimul):
+    th = threading.Thread(target=simulate, args=(i,))
+    threads.append(th)
+    threads[i].start()
+
+for th in threads:
+    th.join()
+
 for i in range(nsimul):  # Iterate through the results of all simulations
-    data = np.loadtxt(outputs[i])  # Load the output file of the i-th simulation
+    data = all_data[i]  # Load the output file of the i-th simulation
     t = data[:, 0]
 
     vx = data[-1, 1]  # final position, velocity, energy
@@ -54,7 +65,7 @@ for i in range(nsimul):  # Iterate through the results of all simulations
     convergence_list_x.append(xx)
     convergence_list_y.append(yy)
     # TODO compute the error for each simulation
-    error[i] =  abs(3.507e8 - xx); 
+    error[i] =  abs(data[0, 5] - En); 
 
 lw = 1.5
 fs = 16
@@ -94,15 +105,13 @@ plt.legend(fontsize=legendfs)
 t_lst = dt[-1] * np.arange(0, nsteps[-1] + 1)
 plt.figure()
 plt.plot(t_lst, data[:, 5], 'y-', linewidth=lw, label="Mecanique")
-plt.plot(t_lst, data[:, 6], 'r-', linewidth=lw, label="Cinetique")
-plt.plot(t_lst, data[:, 7], 'b-', linewidth=lw, label="Centrifuge")
-plt.plot(t_lst, data[:, 8], 'k-', linewidth=lw, label="Grav")
 plt.xlabel("Time t [s]", fontsize=fs)
 plt.ylabel("Energie [J]", fontsize=fs)
 plt.xticks(fontsize=fs)
 plt.yticks(fontsize=fs)
 plt.legend()
 
+"""
 plt.figure()
 plt.plot(t_lst, np.array(data[:, 6]) + np.array(data[:, 8]), label="Cin + grav")
 plt.plot(t_lst, data[:, 7], label="Centrifuge")
@@ -110,16 +119,21 @@ plt.xlabel("t")
 plt.ylabel("En")
 plt.legend()
 plt.show()
+"""
+
 # uncomment the following if you want debug
 #import pdb
 #pbd.set_trace()
-#plt.figure()
-#plt.loglog(dt, error, r'r+-', linewidth=lw)
-#plt.xlabel(r'$\Delta t \mathrm{[s]}$', fontsize=fs)
-#plt.ylabel('final position error [m]', fontsize=fs)
-#plt.xticks(fontsize=fs)
-#plt.yticks(fontsize=fs)
-#plt.grid(True)
+plt.figure()
+plt.plot(dt, error, r'r+-', linewidth=lw)
+plt.xlabel(r'$\Delta t \mathrm{[s]}$', fontsize=fs)
+plt.ylabel('Final energy error [J]', fontsize=fs)
+plt.xticks(fontsize=fs)
+plt.yticks(fontsize=fs)
+plt.xscale('log')
+plt.yscale('log')
+plt.grid(True)
+plt.show()
 
 """
 Si on n'a pas la solution analytique: on représente la quantite voulue
